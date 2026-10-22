@@ -1236,3 +1236,38 @@
                     origin: { y: 0.6 }
                 });
             }
+        }
+
+        function selectReason(reason) {
+            selectedReason = reason;
+            document.getElementById('customReasonInput').value = '';
+            showBanner(`快捷理由標籤已選定：${reason}`);
+        }
+
+        function addLog(text) {
+            if (!gameState.logs) gameState.logs = [];
+            const timeStr = new Date().toLocaleTimeString();
+            gameState.logs.unshift({ text, time: timeStr });
+            if (gameState.logs.length > 30) gameState.logs.pop();
+            renderLogs();
+        }
+
+        function clearLogs() {
+            gameState.logs = [];
+            saveState();
+            renderLogs();
+        }
+
+        function showBanner(msg) {
+            const banner = document.getElementById('bannerMessage');
+            if (banner) banner.innerText = msg;
+        }
+
+
+        /* ================= 12. 頁面載入啟動 ================= */
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
