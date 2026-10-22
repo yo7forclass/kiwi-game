@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奇異鳥組別養成管理系統 Kiwi Bird Virtual Pet & Group Management</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Fredoka', 'Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        kiwi: {
+                            green: '#8BC34A',
+                            darkGreen: '#4CAF50',
+                            lightGreen: '#DCEDC8',
+                            brown: '#795548',
+                            cream: '#FFF9C4',
+                            accent: '#FF9800'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 50%, #a5d6a7 100%);
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        /* 奇異鳥各種狀態動畫 */
+        @keyframes kiwiBounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-16px) scale(1.05) rotate(3deg); }
+        }
+
+        @keyframes kiwiSway {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+
+        @keyframes kiwiShiver {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-3px) rotate(-1deg); }
+            75% { transform: translateX(3px) rotate(1deg); }
+        }
+
+        @keyframes zzzFloat {
+            0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+            50% { opacity: 0.9; transform: translate(12px, -20px) scale(1); }
+            100% { opacity: 0; transform: translate(24px, -40px) scale(1.2); }
+        }
+
+        @keyframes heartBeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.25); }
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.5); }
+        }
+
+        .anim-happy { animation: kiwiBounce 0.8s infinite ease-in-out; }
+        .anim-normal { animation: kiwiSway 3s infinite ease-in-out; }
+        .anim-hungry { animation: kiwiShiver 0.2s infinite ease-in-out; }
+        .anim-heart { animation: heartBeat 1.5s infinite ease-in-out; }
+
+        .zzz-1 { animation: zzzFloat 2.5s infinite ease-in; animation-delay: 0s; }
+        .zzz-2 { animation: zzzFloat 2.5s infinite ease-in; animation-delay: 0.8s; }
+        .zzz-3 { animation: zzzFloat 2.5s infinite ease-in; animation-delay: 1.6s; }
+
+        .floating-text {
+            position: absolute;
+            pointer-events: none;
+            animation: floatUp 1.2s ease-out forwards;
+            font-weight: 900;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 50;
+        }
+
+        .progress-bar-inner {
+            transition: width 0.4s ease-in-out, background-color 0.4s ease;
+        }
+
+        /* 玻璃水晶卡片陰影效果 */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        .glass-card-sleeping {
+            background: rgba(226, 232, 240, 0.85);
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(148, 163, 184, 0.5);
+        }
+
+        /* 3D 立體感按鈕 */
+        .btn-3d {
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+        }
+        .btn-3d:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen font-sans text-gray-800">
+
+    <!-- 頂部導覽列 Header -->
+    <header class="bg-emerald-800 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-600 p-2.5 rounded-2xl shadow-inner flex items-center justify-center">
+                    <i class="fa-solid font-bold text-2xl text-yellow-300 fa-kiwi-bird"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black tracking-wide flex items-center gap-2">
+                        奇異鳥組別養成管理系統
+                    </h1>
+                    <p class="text-xs text-emerald-200">Kiwi Bird Virtual Pet & Group Leaderboard</p>
+                </div>
+            </div>
+
+            <!-- 控制與狀態按鈕 -->
+            <div class="flex items-center gap-2 md:gap-3 flex-wrap">
+                <!-- 週期模式標籤 -->
+                <div id="speedBadge" class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-white shadow">
+                    <i class="fa-solid fa-clock"></i> <span id="speedModeText">每 24 小時扣心</span>
+                </div>
+
+                <!-- 音效切換 -->
+                <button id="soundToggleBtn" onclick="toggleSound()" class="p-2.5 bg-emerald-700 hover:bg-emerald-600 rounded-xl transition flex items-center gap-1 text-sm font-bold shadow" title="切換音效">
+                    <i id="soundIcon" class="fa-solid fa-volume-high text-yellow-300"></i>
+                </button>
+
+                <!-- 視角切換按鈕 -->
+                <button id="viewSwitchBtn" onclick="handleViewSwitch()" class="btn-3d bg-yellow-400 hover:bg-yellow-300 text-emerald-950 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border-2 border-yellow-200">
+                    <i id="viewIcon" class="fa-solid fa-user-gear"></i>
+                    <span id="viewBtnText">進入管理員模式</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區 Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6">
+
+        <!-- Banner廣播與狀態提示 -->
+        <div id="statusBanner" class="bg-white/90 border-l-4 border-emerald-500 p-4 rounded-xl shadow-sm flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-3">
+                <span class="flex h-3 w-3 relative">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <p id="bannerMessage" class="text-sm md:text-base font-bold text-emerald-900">
+                    歡迎來到奇異鳥養成園區！表現良好的組別加分時會自動補滿愛心與飽食度！
+                </p>
+            </div>
+            <div class="text-xs text-gray-500 font-medium" id="lastUpdatedTime">
+                自動保存已啟用
+            </div>
+        </div>
+
+        <!-- ================= 學生看板視角 (Student View) ================= -->
+        <section id="studentView" class="block space-y-6">
+            <!-- 即時動態排行榜與鳥兒卡片 Grid -->
+            <div id="kiwiCardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 6 隻奇異鳥卡片由 JavaScript 動態生成渲染 -->
+            </div>
+        </section>
+
+        <!-- ================= 管理員控制台 (Admin View) ================= -->
+        <section id="adminView" class="hidden space-y-6">
+            
+            <!-- 管理員控制面板頂部 -->
+            <div class="glass-card p-6 rounded-3xl border-2 border-emerald-300 space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-emerald-900 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-emerald-600"></i> 管理員快速控制台
+                        </h2>
+                        <p class="text-xs text-gray-500">管理組別得分、照顧時間與飽食度衰減週期設定</p>
+                    </div>
+
+                    <!-- 全局控制按鈕組 -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="globalAddPoint(1)" class="btn-3d bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 全體 +1 分 (重置時間)
+                        </button>
+                        <button onclick="globalFeedAll()" class="btn-3d bg-amber-500 hover:bg-amber-400 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-apple-whole"></i> 全體餵食補滿愛心
+                        </button>
+                        <button onclick="openSettingsModal()" class="btn-3d bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                            <i class="fa-solid fa-gear"></i> 系統設置/重置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 控制項：衰減週期模式切換與快捷原因標籤 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 衰減週期模式切換 -->
+                    <div class="bg-emerald-50/80 p-4 rounded-2xl border border-emerald-200 flex flex-col justify-between">
+                        <label class="text-xs font-black text-emerald-900 mb-2 block">
+                            <i class="fa-solid fa-stopwatch"></i> 飽食度與愛心扣除週期模式
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setSpeedMode('day24')" id="speedBtnDay24" class="py-2 px-3 rounded-xl text-xs font-bold border-2 transition text-center">
+                                標準模式<br><span class="text-[10px] opacity-75">(24小時/扣心)</span>
+                            </button>
+                            <button onclick="setSpeedMode('day48')" id="speedBtnDay48" class="py-2 px-3 rounded-xl text-xs font-bold border-2 transition text-center">
+                                放鬆模式<br><span class="text-[10px] opacity-75">(48小時/扣心)</span>
+                            </button>
+                            <button onclick="setSpeedMode('test10s')" id="speedBtnTest10s" class="py-2 px-3 rounded-xl text-xs font-bold border-2 transition text-center">
+                                測試快送<br><span class="text-[10px] opacity-75">(10秒/扣心)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 常見加扣分原因設定 -->
+                    <div class="bg-amber-50/80 p-4 rounded-2xl border border-amber-200">
+                        <label class="text-xs font-black text-amber-900 mb-2 block">
+                            <i class="fa-solid fa-comment-dots"></i> 當前快捷理由標籤 (操作時記錄)
+                        </label>
+                        <div class="flex flex-wrap gap-1.5" id="reasonBadges">
+                            <button onclick="selectReason('踴躍回答')" class="reason-tag px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100">踴躍回答 (+1)</button>
+                            <button onclick="selectReason('團隊合作')" class="reason-tag px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100">團隊合作 (+1)</button>
+                            <button onclick="selectReason('完成任務')" class="reason-tag px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100">完成任務 (+2)</button>
+                            <button onclick="selectReason('秩序維護')" class="reason-tag px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100">秩序維護 (+1)</button>
+                            <button onclick="selectReason('干擾秩序')" class="reason-tag px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-rose-900 border border-rose-300 hover:bg-rose-100">干擾秩序 (-1)</button>
+                            <button onclick="selectReason('未完成作業')" class="reason-tag px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-rose-900 border border-rose-300 hover:bg-rose-100">未交作業 (-1)</button>
+                        </div>
+                        <input type="text" id="customReasonInput" placeholder="或輸入自訂原因..." class="mt-2 w-full px-3 py-1.5 rounded-lg border border-amber-300 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 管理員操作組別列表 Grid -->
+            <div id="adminGroupGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 由 JS 動態生成 6 個組別的管理卡片 -->
+            </div>
+
+            <!-- 操作歷程日誌 Log -->
+            <div class="glass-card p-6 rounded-3xl space-y-4">
+                <div class="flex items-center justify-between border-b pb-3">
+                    <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-emerald-600"></i> 管理紀錄日誌 (Recent Logs)
+                    </h3>
+                    <button onclick="clearLogs()" class="text-xs text-rose-500 hover:text-rose-700 font-bold">清除紀錄</button>
+                </div>
+                <div id="logContainer" class="max-h-48 overflow-y-auto space-y-2 text-xs pr-2">
+                    <!-- 日誌列表由 JS 繪製 -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 底部 Footer -->
+    <footer class="bg-emerald-900 text-emerald-200 py-4 text-center text-xs font-medium mt-auto">
+        奇異鳥組別養成管理系統 &copy; 2026 | 課堂互動 & 團隊點數獎勵平台
+    </footer>
+
+
+    <!-- ================= 彈出模組 MODALS ================= -->
+
+    <!-- PIN 碼解鎖模組 -->
+    <div id="pinModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center transform transition-all">
+            <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h3 class="text-xl font-black text-gray-800">輸入管理員密碼</h3>
+            <p class="text-xs text-gray-500">預設密碼為 <span class="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-emerald-600 font-bold">1234</span></p>
+
+            <input type="password" id="pinInput" maxlength="8" placeholder="請輸入密碼..." class="w-full text-center text-2xl font-mono tracking-widest py-2 border-2 border-emerald-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
+
+            <div id="pinErrorMsg" class="text-xs font-bold text-rose-500 hidden">密碼錯誤，請再試一次！</div>
+
+            <div class="flex gap-2">
+                <button onclick="closePinModal()" class="w-1/2 py-2.5 rounded-xl bg-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-300">取消</button>
+                <button onclick="verifyPin()" class="w-1/2 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-500 shadow">解鎖進入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 特訓喚醒迷你遊戲模組 -->
+    <div id="wakeModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 text-center">
+            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold animate-bounce">
+                <i class="fa-solid fa-bell"></i>
+            </div>
+            <div>
+                <h3 id="wakeModalTitle" class="text-xl font-black text-gray-800">喚醒特訓中...</h3>
+                <p class="text-xs text-gray-500 mt-1">這隻奇異鳥愛心已耗盡，正在沉睡！連續點擊呼喚按鈕 5 次可喚醒牠並重置倒數時間！</p>
+            </div>
+
+            <!-- 進度條 -->
+            <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden border">
+                <div id="wakeProgress" class="bg-amber-500 h-full transition-all duration-200" style="width: 0%"></div>
+            </div>
+
+            <div class="text-sm font-bold text-amber-800">
+                剩餘點擊次數：<span id="wakeClicksLeft" class="text-xl font-black text-amber-600">5</span> 次
+            </div>
+
+            <button id="wakeTapBtn" onclick="tapWakeUp()" class="btn-3d w-full py-4 bg-amber-500 hover:bg-amber-400 text-white rounded-2xl font-black text-lg shadow-lg">
+                <i class="fa-solid fa-hand-pointer"></i> 點擊呼喚鳥兒起床！
+            </button>
+
+            <button onclick="closeWakeModal()" class="text-xs text-gray-400 font-bold underline">暫時取消</button>
+        </div>
+    </div>
+
+    <!-- 系統設置模組 -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-emerald-600"></i> 系統高級設置
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <!-- 修改 PIN 碼 -->
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-700">重設管理員 PIN 碼</label>
+                <input type="text" id="newPinInput" placeholder="新密碼 (預設1234)" class="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <!-- 編輯各組組名 -->
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-700">自訂 6 個組別名稱</label>
+                <div class="grid grid-cols-2 gap-2" id="groupNameInputs">
+                    <!-- JS 生成名稱輸入框 -->
+                </div>
+            </div>
+
+            <!-- 危險區 -->
+            <div class="pt-3 border-t space-y-2">
+                <label class="text-xs font-bold text-rose-600 block">危險操作區域</label>
+                <button onclick="resetAllData()" class="w-full py-2 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-rose-300">
+                    <i class="fa-solid fa-trash-arrow-up"></i> 重置所有組別分數與照顧記錄 (Reset All)
+                </button>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="saveSettings()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm shadow">
+                    儲存變更 (Save Settings)
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <script>
+        /* ================= 1. 系統常數與狀態 (STATE) ================= */
+        const MAX_HEARTS = 5;
+
+        // 預設飾品與外觀定義
+        const KIWI_CONFIGS = [
+            { id: 1, name: "第 1 組", color: "#FF6B6B", accessory: "crown", accName: "皇冠" },
+            { id: 2, name: "第 2 組", color: "#4D96FF", accessory: "glasses", accName: "黑框眼鏡" },
+            { id: 3, name: "第 3 組", color: "#FFD93D", accessory: "bowtie", accName: "紅領結" },
+            { id: 4, name: "第 4 組", color: "#6BCB77", accessory: "clover", accName: "四葉草" },
+            { id: 5, name: "第 5 組", color: "#FF92A9", accessory: "flower", accName: "頭頂小花" },
+            { id: 6, name: "第 6 組", color: "#9B51E0", accessory: "cape", accName: "英雄斗篷" }
+        ];
+
+        // 時間衰減週期定義（毫秒數）
+        const SPEED_MODES = {
+            day24: { label: "標準模式 (24小時/扣心)", intervalMs: 24 * 60 * 60 * 1000 },
+            day48: { label: "放鬆模式 (48小時/扣心)", intervalMs: 48 * 60 * 60 * 1000 },
+            test10s: { label: "測試快送 (10秒/扣心)", intervalMs: 10 * 1000 }
+        };
+
+        // 系統主要 State
+        let gameState = {
+            groups: [],
+            adminPin: "1234",
+            speedMode: "day24",
+            soundEnabled: true,
+            logs: []
+        };
+
+        let currentView = 'student'; // 'student' 或 'admin'
+        let selectedReason = "表現優良";
+        let timerInterval = null;
+        let activeWakeGroupId = null;
+        let currentWakeClicks = 0;
+
+
+        /* ================= 2. Web Audio API 音效引擎 ================= */
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                if (type === 'add') {
+                    // 加分音樂（三連音）
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'sub') {
+                    // 扣分提示音
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.linearRampToValueAtTime(150, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'wake') {
+                    // 喚醒打擊音
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'warning') {
+                    // 扣心警報音
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.setValueAtTime(180, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch(e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            if (gameState.soundEnabled) {
+                icon.className = 'fa-solid fa-volume-high text-yellow-300';
+                playSound('add');
+            } else {
+                icon.className = 'fa-solid fa-volume-xmark text-gray-300';
+            }
+            saveState();
+        }
+
+
+        /* ================= 3. 初始化與跨天結算算力 (24小時邏輯) ================= */
+        function initGame() {
+            loadState();
+            calculateOfflineDecay(); // 進行跨天離線自動結算
+            setupTimer();
+            renderAll();
+        }
+
+        function createDefaultGroups() {
+            const now = Date.now();
+            return KIWI_CONFIGS.map(cfg => ({
+                id: cfg.id,
+                name: cfg.name,
+                points: 0,
+                hearts: MAX_HEARTS,
+                status: 'normal', // 'happy', 'normal', 'hungry', 'sleeping'
+                accessory: cfg.accessory,
+                color: cfg.color,
+                lastFedTime: now // 記錄上次獲得照顧/加分的時間戳記
+            }));
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('kiwi_game_state_24h');
+            if (saved) {
+                try {
+                    gameState = JSON.parse(saved);
+                    if (!gameState.groups || gameState.groups.length === 0) {
+                        gameState.groups = createDefaultGroups();
+                    }
+                } catch(e) {
+                    gameState.groups = createDefaultGroups();
+                }
+            } else {
+                gameState.groups = createDefaultGroups();
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('kiwi_game_state_24h', JSON.stringify(gameState));
+            document.getElementById('lastUpdatedTime').innerText = `上次同步: ${new Date().toLocaleTimeString()}`;
+        }
+
+        // 核心計算：跨天/離線自動算心數扣除
+        function calculateOfflineDecay() {
+            const now = Date.now();
+            const modeConfig = SPEED_MODES[gameState.speedMode] || SPEED_MODES.day24;
+            const interval = modeConfig.intervalMs;
+
+            let updatedCount = 0;
+
+            gameState.groups.forEach(group => {
+                if (group.status === 'sleeping') return;
+
+                const elapsedTime = now - group.lastFedTime;
+                if (elapsedTime >= interval) {
+                    // 計算經過了幾個完整週期
+                    const cyclesPassed = Math.floor(elapsedTime / interval);
+                    
+                    if (cyclesPassed > 0) {
+                        group.hearts -= cyclesPassed;
+                        
+                        if (group.hearts <= 0) {
+                            group.hearts = 0;
+                            group.status = 'sleeping';
+                            addLog(`😴 [${group.name}] 未獲得照顧滿 ${cyclesPassed} 個週期，陷入沉睡！`);
+                        } else {
+                            // 扣心但尚未沉睡，推進時間戳記基準，維持剩餘餘數時間
+                            group.lastFedTime += (cyclesPassed * interval);
+                            if (group.hearts <= 2) group.status = 'hungry';
+                            else group.status = 'normal';
+                            
+                            addLog(`⚠️ [${group.name}] 時間到達週期，扣除 ${cyclesPassed} 顆愛心！`);
+                        }
+                        updatedCount++;
+                    }
+                }
+            });
+
+            if (updatedCount > 0) {
+                saveState();
+                showBanner(`🔔 系統已結算過往離線時間，部分鳥兒狀態已更新！`);
+            }
+        }
+
+
+        /* ================= 4. 計時器與動態倒數 ================= */
+        function setupTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            // 每秒刷新一次，用來維護時間倒數標籤與即時扣心判定
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const modeConfig = SPEED_MODES[gameState.speedMode] || SPEED_MODES.day24;
+                const interval = modeConfig.intervalMs;
+                let needFullRender = false;
+
+                gameState.groups.forEach(group => {
+                    if (group.status === 'sleeping') return;
+
+                    const elapsed = now - group.lastFedTime;
+                    if (elapsed >= interval) {
+                        // 剛好到期，扣 1 顆心
+                        group.hearts -= 1;
+                        playSound('warning');
+
+                        if (group.hearts <= 0) {
+                            group.hearts = 0;
+                            group.status = 'sleeping';
+                            addLog(`😴 [${group.name}] 愛心耗盡，陷入沉睡狀態...`);
+                            showBanner(`😴 [${group.name}] 陷入沉睡！需由管理員喚醒！`);
+                        } else {
+                            group.lastFedTime = now; // 重置下一輪週期起點
+                            if (group.hearts <= 2) group.status = 'hungry';
+                            addLog(`⚠️ [${group.name}] 經過一個週期，失去 1 顆健康愛心！`);
+                        }
+                        needFullRender = true;
+                    }
+                });
+
+                if (needFullRender) {
+                    saveState();
+                    renderAll();
+                } else {
+                    // 僅更新文字時間倒數，節約效能
+                    updateTimersUI();
+                }
+            }, 1000);
+        }
+
+        function setSpeedMode(modeKey) {
+            if (!SPEED_MODES[modeKey]) return;
+            gameState.speedMode = modeKey;
+            
+            // 切換模式時重置所有活著的鳥兒 lastFedTime 基準，避開時間錯亂
+            const now = Date.now();
+            gameState.groups.forEach(g => {
+                if (g.status !== 'sleeping') g.lastFedTime = now;
+            });
+
+            saveState();
+            setupTimer();
+            renderAll();
+            showBanner(`⏱️ 時間扣心模式已變更為：${SPEED_MODES[modeKey].label}`);
+        }
+
+        // 格式化倒數時間顯示字串
+        function formatRemainingTime(lastFedTime) {
+            const now = Date.now();
+            const modeConfig = SPEED_MODES[gameState.speedMode] || SPEED_MODES.day24;
+            const interval = modeConfig.intervalMs;
+            const remainingMs = interval - (now - lastFedTime);
+
+            if (remainingMs <= 0) return "即將扣心";
+
+            const totalSec = Math.floor(remainingMs / 1000);
+            const hours = Math.floor(totalSec / 3600);
+            const mins = Math.floor((totalSec % 3600) / 60);
+            const secs = totalSec % 60;
+
+            if (hours > 0) {
+                return `剩餘 ${hours} 小時 ${mins} 分`;
+            } else if (mins > 0) {
+                return `剩餘 ${mins} 分 ${secs} 秒`;
+            } else {
+                return `剩餘 ${secs} 秒`;
+            }
+        }
+
+        // 即時刷新卡片上的倒數時間
+        function updateTimersUI() {
+            gameState.groups.forEach(group => {
+                const timerEl = document.getElementById(`countdown-${group.id}`);
+                const barInner = document.getElementById(`hunger-bar-${group.id}`);
+                
+                if (group.status === 'sleeping') {
+                    if (timerEl) timerEl.innerText = "已沉睡 (需喚醒)";
+                    if (barInner) barInner.style.width = "0%";
+                    return;
+                }
+
+                if (timerEl) {
+                    timerEl.innerText = formatRemainingTime(group.lastFedTime);
+                }
+
+                if (barInner) {
+                    const now = Date.now();
+                    const modeConfig = SPEED_MODES[gameState.speedMode] || SPEED_MODES.day24;
+                    const remainingMs = Math.max(0, modeConfig.intervalMs - (now - group.lastFedTime));
+                    const percent = Math.min(100, Math.max(0, (remainingMs / modeConfig.intervalMs) * 100));
+                    barInner.style.width = `${percent}%`;
+                }
+            });
+        }
+
+
+        /* ================= 5. SVG 奇異鳥圖案動態繪製 ================= */
+        function generateKiwiSVG(group) {
+            const isSleeping = group.status === 'sleeping';
+            const isHungry = group.status === 'hungry';
+            const isHappy = group.status === 'happy';
+
+            // 眼睛表情
+            let eyeSVG = `
+                <ellipse cx="68" cy="52" rx="4" ry="6" fill="#1E293B"/>
+                <ellipse cx="92" cy="52" rx="4" ry="6" fill="#1E293B"/>
+                <circle cx="70" cy="50" r="1.5" fill="#FFFFFF"/>
+                <circle cx="94" cy="50" r="1.5" fill="#FFFFFF"/>
+            `;
+
+            if (isSleeping) {
+                eyeSVG = `
+                    <path d="M63 54 Q68 60 73 54" stroke="#475569" stroke-width="3" stroke-linecap="round" fill="none"/>
+                    <path d="M87 54 Q92 60 97 54" stroke="#475569" stroke-width="3" stroke-linecap="round" fill="none"/>
+                `;
+            } else if (isHungry) {
+                eyeSVG = `
+                    <circle cx="68" cy="52" r="4" fill="#1E293B"/>
+                    <circle cx="92" cy="52" r="4" fill="#1E293B"/>
+                    <path d="M102 42 Q105 35 108 42 Q108 46 105 46 Q102 46 102 42 Z" fill="#38BDF8"/>
+                `;
+            } else if (isHappy) {
+                eyeSVG = `
+                    <path d="M63 54 Q68 46 73 54" stroke="#1E293B" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+                    <path d="M87 54 Q92 46 97 54" stroke="#1E293B" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+                `;
+            }
+
+            // 專屬飾品 SVG
+            let accessorySVG = '';
+            switch(group.accessory) {
+                case 'crown': // 皇冠
+                    accessorySVG = `<path d="M65 30 L72 18 L80 26 L88 18 L95 30 Z" fill="#FFD700" stroke="#B45309" stroke-width="2"/>
+                                    <circle cx="72" cy="18" r="2" fill="#EF4444"/>
+                                    <circle cx="80" cy="26" r="2" fill="#3B82F6"/>
+                                    <circle cx="88" cy="18" r="2" fill="#EF4444"/>`;
+                    break;
+                case 'glasses': // 眼鏡
+                    accessorySVG = `<circle cx="68" cy="53" r="10" fill="none" stroke="#0F172A" stroke-width="3"/>
+                                    <circle cx="92" cy="53" r="10" fill="none" stroke="#0F172A" stroke-width="3"/>
+                                    <line x1="78" y1="53" x2="82" y2="53" stroke="#0F172A" stroke-width="3"/>`;
+                    break;
+                case 'bowtie': // 領結
+                    accessorySVG = `<path d="M70 76 L90 86 L90 66 L70 76 Z L60 66 L60 86 L80 76 Z" fill="#EF4444"/>
+                                    <circle cx="75" cy="76" r="4" fill="#991B1B"/>`;
+                    break;
+                case 'clover': // 四葉草
+                    accessorySVG = `<g transform="translate(88, 20) scale(0.7)">
+                                        <circle cx="10" cy="5" r="5" fill="#22C55E"/>
+                                        <circle cx="15" cy="10" r="5" fill="#22C55E"/>
+                                        <circle cx="10" cy="15" r="5" fill="#22C55E"/>
+                                        <circle cx="5" cy="10" r="5" fill="#22C55E"/>
+                                        <path d="M10 10 Q12 22 8 26" stroke="#15803D" stroke-width="2" fill="none"/>
+                                    </g>`;
+                    break;
+                case 'flower': // 小花
+                    accessorySVG = `<g transform="translate(62, 18)">
+                                        <circle cx="10" cy="4" r="4" fill="#F472B6"/>
+                                        <circle cx="16" cy="10" r="4" fill="#F472B6"/>
+                                        <circle cx="10" cy="16" r="4" fill="#F472B6"/>
+                                        <circle cx="4" cy="10" r="4" fill="#F472B6"/>
+                                        <circle cx="10" cy="10" r="4" fill="#FACC15"/>
+                                    </g>`;
+                    break;
+                case 'cape': // 斗篷
+                    accessorySVG = `<path d="M50 70 Q30 90 40 110 L110 110 Q120 90 100 70 Z" fill="#8B5CF6" opacity="0.85"/>`;
+                    break;
+            }
+
+            // Zzz 沉睡特效
+            let zzzSVG = '';
+            if (isSleeping) {
+                zzzSVG = `
+                    <text x="110" y="40" fill="#64748B" font-weight="900" font-size="18" class="zzz-1">Z</text>
+                    <text x="122" y="30" fill="#64748B" font-weight="900" font-size="14" class="zzz-2">z</text>
+                    <text x="130" y="20" fill="#64748B" font-weight="900" font-size="10" class="zzz-3">z</text>
+                `;
+            }
+
+            let animClass = 'anim-normal';
+            if (isSleeping) animClass = '';
+            else if (isHappy) animClass = 'anim-happy';
+            else if (isHungry) animClass = 'anim-hungry';
+
+            const filterStyle = isSleeping ? 'filter: grayscale(80%) opacity(0.85);' : '';
+
+            return `
+                <div class="relative w-full flex justify-center items-center py-2">
+                    <svg class="w-40 h-40 ${animClass}" viewBox="0 0 160 140" style="${filterStyle}">
+                        ${group.accessory === 'cape' ? accessorySVG : ''}
+
+                        <!-- 雙腳 -->
+                        <path d="M62 110 L58 128 M58 128 L50 132 M58 128 L64 133" stroke="#D97706" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M98 110 L94 128 M94 128 L86 132 M94 128 L100 133" stroke="#D97706" stroke-width="4" stroke-linecap="round"/>
+
+                        <!-- 鳥身 -->
+                        <ellipse cx="80" cy="75" rx="42" ry="38" fill="#8D6E63"/>
+                        <ellipse cx="80" cy="78" rx="35" ry="30" fill="#A1887F"/>
+
+                        <!-- 腮紅 -->
+                        <circle cx="56" cy="62" r="6" fill="#FF8A80" opacity="0.6"/>
+                        <circle cx="104" cy="62" r="6" fill="#FF8A80" opacity="0.6"/>
+
+                        <!-- 眼睛 -->
+                        ${eyeSVG}
+
+                        <!-- 鳥嘴 -->
+                        <path d="M80 58 Q85 70 120 72 Q85 74 80 66 Z" fill="#F59E0B" stroke="#D97706" stroke-width="1.5"/>
+
+                        ${group.accessory !== 'cape' ? accessorySVG : ''}
+                        ${zzzSVG}
+                    </svg>
+                </div>
+            `;
+        }
+
+
+        /* ================= 6. UI 渲染 (RENDER) ================= */
+        function renderAll() {
+            renderStudentView();
+            renderAdminControls();
+            renderLogs();
+            updateHeaderBadges();
+            updateTimersUI();
+        }
+
+        function renderStudentView() {
+            const grid = document.getElementById('kiwiCardsGrid');
+            grid.innerHTML = '';
+
+            // 計算即時排名
+            const sortedGroups = [...gameState.groups].sort((a,b) => b.points - a.points);
+
+            gameState.groups.forEach(group => {
+                const rank = sortedGroups.findIndex(g => g.id === group.id) + 1;
+                const isSleeping = group.status === 'sleeping';
+
+                // 愛心 HTML
+                let heartsHTML = '';
+                for (let i = 1; i <= MAX_HEARTS; i++) {
+                    if (i <= group.hearts) {
+                        heartsHTML += `<i class="fa-solid fa-heart text-rose-500 text-lg anim-heart"></i>`;
+                    } else {
+                        heartsHTML += `<i class="fa-regular fa-heart text-gray-300 text-lg"></i>`;
+                    }
+                }
+
+                // 狀態標籤
+                let statusBadge = `<span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800"><i class="fa-solid fa-face-smile"></i> 開心活潑</span>`;
+                if (isSleeping) {
+                    statusBadge = `<span class="px-3 py-1 rounded-full text-xs font-black bg-slate-200 text-slate-700 animate-pulse"><i class="fa-solid fa-bed"></i> 沉睡中 (Zzz)</span>`;
+                } else if (group.status === 'hungry') {
+                    statusBadge = `<span class="px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800"><i class="fa-solid fa-heart-crack"></i> 虛弱需照顧</span>`;
+                } else if (group.status === 'happy') {
+                    statusBadge = `<span class="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800"><i class="fa-solid fa-star"></i> 狀態極佳</span>`;
+                }
+
+                // 排名 Icon
+                let rankBadge = `<span class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">#${rank}</span>`;
+                if (rank === 1) rankBadge = `<span class="w-8 h-8 rounded-full bg-yellow-400 text-yellow-950 flex items-center justify-center font-black text-sm shadow"><i class="fa-solid fa-crown"></i></span>`;
+                else if (rank === 2) rankBadge = `<span class="w-7 h-7 rounded-full bg-slate-300 text-slate-800 flex items-center justify-center font-black text-xs">2</span>`;
+                else if (rank === 3) rankBadge = `<span class="w-7 h-7 rounded-full bg-amber-600 text-white flex items-center justify-center font-black text-xs">3</span>`;
+
+                const cardClass = isSleeping ? 'glass-card-sleeping' : 'glass-card';
+
+                const cardHTML = `
+                    <div id="card-group-${group.id}" class="${cardClass} rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden transition-all duration-300 hover:shadow-2xl">
+                        <!-- 頂部組名與狀態 -->
+                        <div class="flex items-center justify-between border-b border-gray-200/60 pb-3">
+                            <div class="flex items-center gap-2">
+                                ${rankBadge}
+                                <h3 class="text-xl font-black text-gray-800 tracking-wide">${group.name}</h3>
+                            </div>
+                            ${statusBadge}
+                        </div>
+
+                        <!-- 奇異鳥 SVG 角色 -->
+                        <div class="relative">
+                            ${generateKiwiSVG(group)}
+                        </div>
+
+                        <!-- 數據面板：分數、5 顆愛心、時間倒數 -->
+                        <div class="space-y-3 bg-white/60 p-3.5 rounded-2xl border border-white/80">
+                            <!-- 得分顯示 -->
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-gray-500">團隊得分</span>
+                                <span class="text-3xl font-black text-emerald-700 font-mono tracking-tight">${group.points} <span class="text-xs font-bold text-gray-400">分</span></span>
+                            </div>
+
+                            <!-- 5 顆愛心生命值 -->
+                            <div class="flex items-center justify-between border-t border-gray-200/50 pt-2">
+                                <span class="text-xs font-bold text-gray-500">健康愛心</span>
+                                <div class="flex gap-1.5">
+                                    ${heartsHTML}
+                                </div>
+                            </div>
+
+                            <!-- 24小時倒數計時與條 -->
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-[11px] font-bold text-gray-500">
+                                    <span><i class="fa-solid fa-hourglass-half text-amber-500"></i> 下次扣心倒數</span>
+                                    <span id="countdown-${group.id}" class="font-mono font-bold text-emerald-800">計算中...</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden border border-gray-300/50">
+                                    <div id="hunger-bar-${group.id}" class="progress-bar-inner bg-amber-500 h-full rounded-full" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += cardHTML;
+            });
+        }
+
+        function renderAdminControls() {
+            const grid = document.getElementById('adminGroupGrid');
+            grid.innerHTML = '';
+
+            gameState.groups.forEach(group => {
+                const isSleeping = group.status === 'sleeping';
+
+                const cardHTML = `
+                    <div class="bg-white/90 border-2 ${isSleeping ? 'border-slate-400 bg-slate-50' : 'border-emerald-200'} rounded-3xl p-5 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b pb-2">
+                            <div>
+                                <h4 class="font-black text-lg text-gray-800">${group.name}</h4>
+                                <p class="text-xs text-gray-400">飾品: ${KIWI_CONFIGS.find(c=>c.id===group.id)?.accName}</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-2xl font-black font-mono text-emerald-600">${group.points}</span>
+                                <span class="text-xs font-bold text-gray-400">分</span>
+                            </div>
+                        </div>
+
+                        <!-- 狀態摘要 -->
+                        <div class="flex justify-between items-center text-xs font-bold text-gray-600">
+                            <span>愛心生命: ${group.hearts}/${MAX_HEARTS}</span>
+                            <span>狀態: ${group.status}</span>
+                        </div>
+
+                        <!-- 加扣分按鈕 -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="modifyPoints(${group.id}, 1)" class="btn-3d py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-plus"></i> 加 1 分 (重置計時)
+                            </button>
+                            <button onclick="modifyPoints(${group.id}, -1)" class="btn-3d py-2 bg-rose-500 hover:bg-rose-400 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-minus"></i> 扣 1 分
+                            </button>
+                        </div>
+
+                        <!-- 特殊動作：喚醒 / 餵食愛心 -->
+                        <div class="flex gap-2 pt-1">
+                            ${isSleeping ? `
+                                <button onclick="openWakeModal(${group.id})" class="btn-3d w-full py-2 bg-amber-500 hover:bg-amber-400 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1 shadow animate-pulse">
+                                    <i class="fa-solid fa-bell"></i> 特訓喚醒鳥兒
+                                </button>
+                            ` : `
+                                <button onclick="feedGroup(${group.id})" class="btn-3d w-full py-2 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-xl text-xs flex items-center justify-center gap-1 border border-amber-300">
+                                    <i class="fa-solid fa-apple-whole text-amber-600"></i> 單獨餵食 (補滿愛心&重置時間)
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += cardHTML;
+            });
+
+            // 更新時間週期切換按鈕的高亮
+            ['day24', 'day48', 'test10s'].forEach(m => {
+                const btn = document.getElementById(`speedBtn${m.charAt(0).toUpperCase() + m.slice(1)}`);
+                if (btn) {
+                    if (gameState.speedMode === m) {
+                        btn.className = "py-2 px-3 rounded-xl text-xs font-bold border-2 transition text-center bg-emerald-600 text-white border-emerald-700 shadow";
+                    } else {
+                        btn.className = "py-2 px-3 rounded-xl text-xs font-bold border-2 transition text-center bg-white text-gray-700 border-gray-300 hover:bg-gray-100";
+                    }
+                }
+            });
+        }
+
+        function renderLogs() {
+            const logBox = document.getElementById('logContainer');
+            if (!gameState.logs || gameState.logs.length === 0) {
+                logBox.innerHTML = `<div class="text-gray-400 text-center py-4">尚無操作紀錄</div>`;
+                return;
+            }
+            logBox.innerHTML = gameState.logs.map(log => `
+                <div class="bg-white/80 p-2 rounded-lg border border-gray-200 flex justify-between items-center">
+                    <span class="font-medium text-gray-700">${log.text}</span>
+                    <span class="text-[10px] text-gray-400 font-mono">${log.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateHeaderBadges() {
+            const speedText = document.getElementById('speedModeText');
+            if (speedText) {
+                speedText.innerText = SPEED_MODES[gameState.speedMode]?.label || '每 24 小時扣心';
+            }
+        }
+
+
+        /* ================= 7. 得分操作 & 邏輯互動 ================= */
+        function modifyPoints(groupId, delta) {
+            const group = gameState.groups.find(g => g.id === groupId);
+            if (!group) return;
+
+            if (group.status === 'sleeping') {
+                alert(`⚠️ [${group.name}] 正處於沉睡狀態！請先點擊「特訓喚醒」將牠叫醒才能進行加扣分操作。`);
+                return;
+            }
+
+            const customReason = document.getElementById('customReasonInput').value.trim();
+            const reason = customReason || selectedReason || "課堂表現";
+
+            group.points += delta;
+            if (group.points < 0) group.points = 0;
+
+            // 加分時自動補滿愛心並重置倒數起點
+            if (delta > 0) {
+                group.hearts = MAX_HEARTS;
+                group.lastFedTime = Date.now();
+                group.status = 'happy';
+                playSound('add');
+                triggerFloatingEffect(groupId, `+${delta} ${reason}`);
+
+                // 每滿 10 分觸發彩帶
+                if (group.points > 0 && group.points % 10 === 0) {
+                    triggerConfetti();
+                    showBanner(`🎉 恭喜 [${group.name}] 突破 ${group.points} 分大關！太棒了！`);
+                }
+            } else {
+                playSound('sub');
+                triggerFloatingEffect(groupId, `${delta} ${reason}`, '#EF4444');
+            }
+
+            addLog(`${delta > 0 ? '➕' : '➖'} [${group.name}] ${delta > 0 ? '+' : ''}${delta} 分 (原因: ${reason})`);
+            saveState();
+            renderAll();
+        }
+
+        function feedGroup(groupId) {
+            const group = gameState.groups.find(g => g.id === groupId);
+            if (!group || group.status === 'sleeping') return;
+
+            group.hearts = MAX_HEARTS;
+            group.lastFedTime = Date.now(); // 重置計時
+            group.status = 'happy';
+
+            playSound('add');
+            triggerFloatingEffect(groupId, `🍎 愛心補滿!`);
+            addLog(`🍎 [${group.name}] 享用了大餐，愛心恢復並重置 24 小時倒數！`);
+            saveState();
+            renderAll();
+        }
+
+        function globalAddPoint(delta) {
+            const now = Date.now();
+            gameState.groups.forEach(g => {
+                if (g.status !== 'sleeping') {
+                    g.points += delta;
+                    g.hearts = MAX_HEARTS;
+                    g.lastFedTime = now;
+                }
+            });
+            playSound('add');
+            addLog(`✨ 全體組別 +${delta} 分！愛心補滿且重置倒數！`);
+            saveState();
+            renderAll();
+        }
+
+        function globalFeedAll() {
+            const now = Date.now();
+            gameState.groups.forEach(g => {
+                if (g.status !== 'sleeping') {
+                    g.hearts = MAX_HEARTS;
+                    g.lastFedTime = now;
+                }
+            });
+            playSound('add');
+            addLog(`🍎 全體組別餵食完畢！愛心已全部補滿！`);
+            saveState();
+            renderAll();
+        }
+
+
+        /* ================= 8. 特訓喚醒互動 ================= */
+        function openWakeModal(groupId) {
+            activeWakeGroupId = groupId;
+            currentWakeClicks = 0;
+            const group = gameState.groups.find(g => g.id === groupId);
+            document.getElementById('wakeModalTitle').innerText = `喚醒特訓：${group.name}`;
+            updateWakeModalUI();
+            document.getElementById('wakeModal').classList.remove('hidden');
+        }
+
+        function tapWakeUp() {
+            currentWakeClicks += 1;
+            playSound('wake');
+
+            if (currentWakeClicks >= 5) {
+                const group = gameState.groups.find(g => g.id === activeWakeGroupId);
+                if (group) {
+                    group.status = 'normal';
+                    group.hearts = 3; // 喚醒後給予 3 顆愛心基礎
+                    group.lastFedTime = Date.now(); // 重置時間
+                    addLog(`⏰ [${group.name}] 完成特訓叫醒成功！恢復健康狀態！`);
+                    showBanner(`🔔 [${group.name}] 已經醒過來囉！`);
+                    triggerConfetti();
+                }
+                closeWakeModal();
+                saveState();
+                renderAll();
+            } else {
+                updateWakeModalUI();
+            }
+        }
+
+        function updateWakeModalUI() {
+            const left = 5 - currentWakeClicks;
+            document.getElementById('wakeClicksLeft').innerText = left;
+            document.getElementById('wakeProgress').style.width = `${(currentWakeClicks / 5) * 100}%`;
+        }
+
+        function closeWakeModal() {
+            document.getElementById('wakeModal').classList.add('hidden');
+            activeWakeGroupId = null;
+        }
+
+
+        /* ================= 9. 視角切換與 PIN 驗證 ================= */
+        function handleViewSwitch() {
+            if (currentView === 'student') {
+                document.getElementById('pinInput').value = '';
+                document.getElementById('pinErrorMsg').classList.add('hidden');
+                document.getElementById('pinModal').classList.remove('hidden');
+            } else {
+                currentView = 'student';
+                document.getElementById('studentView').classList.remove('hidden');
+                document.getElementById('adminView').classList.add('hidden');
+                document.getElementById('viewBtnText').innerText = '進入管理員模式';
+                document.getElementById('viewIcon').className = 'fa-solid fa-user-gear';
+            }
+        }
+
+        function verifyPin() {
+            const inputPin = document.getElementById('pinInput').value;
+            if (inputPin === gameState.adminPin || inputPin === "1234") {
+                document.getElementById('pinModal').classList.add('hidden');
+                currentView = 'admin';
+                document.getElementById('studentView').classList.add('hidden');
+                document.getElementById('adminView').classList.remove('hidden');
+                document.getElementById('viewBtnText').innerText = '回到學生看板';
+                document.getElementById('viewIcon').className = 'fa-solid fa-desktop';
+                renderAdminControls();
+            } else {
+                document.getElementById('pinErrorMsg').classList.remove('hidden');
+            }
+        }
+
+        function closePinModal() {
+            document.getElementById('pinModal').classList.add('hidden');
+        }
+
+
+        /* ================= 10. 高階系統設置 ================= */
+        function openSettingsModal() {
+            const nameInputs = document.getElementById('groupNameInputs');
+            nameInputs.innerHTML = gameState.groups.map(g => `
+                <div>
+                    <label class="text-[10px] text-gray-500 font-bold">組別 ${g.id}</label>
+                    <input type="text" id="edit-group-name-${g.id}" value="${g.name}" class="w-full px-2 py-1 border rounded text-xs">
+                </div>
+            `).join('');
+
+            document.getElementById('newPinInput').value = gameState.adminPin;
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function saveSettings() {
+            const newPin = document.getElementById('newPinInput').value.trim();
+            if (newPin) gameState.adminPin = newPin;
+
+            gameState.groups.forEach(g => {
+                const inp = document.getElementById(`edit-group-name-${g.id}`);
+                if (inp && inp.value.trim()) {
+                    g.name = inp.value.trim();
+                }
+            });
+
+            saveState();
+            renderAll();
+            closeSettingsModal();
+            showBanner('⚙️ 系統設置與組別名稱已更新！');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function resetAllData() {
+            if (confirm("⚠️ 確定要重置所有組別的分數、愛心與照顧計時嗎？此操作無法復原！")) {
+                gameState.groups = createDefaultGroups();
+                gameState.logs = [];
+                saveState();
+                renderAll();
+                closeSettingsModal();
+                showBanner('🔄 所有組別資料已重置！');
+            }
+        }
+
+
+        /* ================= 11. 特效與輔助函式 ================= */
+        function triggerFloatingEffect(groupId, text, color = '#10B981') {
+            const card = document.getElementById(`card-group-${groupId}`);
+            if (!card) return;
+
+            const el = document.createElement('div');
+            el.className = 'floating-text text-xl';
+            el.style.color = color;
+            el.innerText = text;
+            el.style.left = '40%';
+            el.style.top = '30%';
+
+            card.appendChild(el);
+            setTimeout(() => el.remove(), 1200);
+        }
+
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
